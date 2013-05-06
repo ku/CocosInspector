@@ -1,0 +1,3 @@
+[submodule "lib/BLWebSocketsServer"]
+	path = lib/BLWebSocketsServer
+	url = git://github.com/ku/BLWebSocketsServer.git
