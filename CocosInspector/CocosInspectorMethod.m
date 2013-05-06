@@ -7,8 +7,17 @@
 //
 
 #import "CocosInspectorMethod.h"
+@interface CocosInspectorMethod ()
+@property(nonatomic, readwrite) NSMutableDictionary *nodeCache;
+@end
 
 @implementation CocosInspectorMethod
+- (id)init {
+    if (self = [super init]) {
+        self.nodeCache = [NSMutableDictionary dictionary];
+    }
+    return self;
+}
 
 - (id)nodeWithCCNode:(CCNode*)node {
     id klass = [node class];
@@ -30,8 +39,19 @@
         xmlVersion = @"1.0";
     }
     
+    NSNumber *nodeId = [NSNumber numberWithUnsignedLongLong:(unsigned long long)node];
+    [self.nodeCache setObject:node forKey:nodeId];
+    
+    
+    NSMutableArray *attributes = [NSMutableArray array];
+    if (node.tag != -1) {
+        [attributes addObject:@"tag"];
+        [attributes addObject:[NSString stringWithFormat:@"%d", node.tag]];
+    }
+    
     id chromeNode = @{
-                      @"nodeId": [NSNumber numberWithUnsignedLongLong:(unsigned long long)node],
+                      @"attributes": attributes,
+                      @"nodeId": nodeId,
                       @"nodeType": nodeType,
                       @"nodeName": className,
                       @"localName": @"",
@@ -55,6 +75,17 @@
     return node;
 }
 
+-(NSString*)nodeIdOfCCNode:(CCNode*)node {
+    NSNumber *nodeId = [NSNumber numberWithUnsignedLongLong:(unsigned long long)node];
+    return nodeId;
+}
+
+-(id)notify:(id)message {
+    NSData *data = [NSJSONSerialization dataWithJSONObject:message options:0 error:nil];
+    // FIXME should send only to the correponding client
+    [[BLWebSocketsServer sharedInstance] pushToAll:data];
+    return nil;
+}
 
 -(id)successResult {
     return [self emptyResult];
