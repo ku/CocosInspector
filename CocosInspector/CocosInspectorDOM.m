@@ -78,21 +78,80 @@
     
     id result = @{
                   @"result": @{
-                          @"root": [self nodeWithCCNode:scene]
+                          @"root": @{
+//                                      @"attributes": @[],
+                                      @"nodeId": @"",
+                                      @"nodeType": @(9),
+                                      @"nodeName": @"#root",
+                                      @"localName": @"",
+                                      @"nodeValue": @"",
+                                      @"childNodeCount": @(1),
+                                      @"children":  @[
+                                              [self nodeWithCCNode:scene]
+                                              ],
+                                      @"documentURL": @"http://example.com/",
+                                      @"baseURL": @"http://example.com/",
+                                      @"xmlVersion": @"1.0"
+
+                                  }
+                              
+                              
+                              
                           }
                   };
     
     return result;
 }
 
+static CCNode *highlighter = nil;
+
 -(id)hideHighlight:(id)params {
     return [self notImplemented];
 }
 -(id)highlightNode:(id)params {
     CCNode *node = [self nodeFromParams:params];
+//    CGPoint p = [node convertToWorldSpace:CGPointMake(0, 0)];
+//    ccDrawCircle(node.anchorPointInPoints, 20, 0, 8, YES);
+    CGRect bounds = node.boundingBox;
+    
+    
+    if (highlighter) {
+        [highlighter removeFromParentAndCleanup:YES];
+    }
+    CCNodeRGBA *highlight = [CCLayerColor node];
+    [highlight setColor:ccc3(128, 128, 255)];
+    highlight.opacity = 192;
+    highlight.zOrder = 10000;
+    CGPoint origin = [node.parent convertToWorldSpace:bounds.origin];
+//    bounds.size;
+    
+    CCScene *scene = [CCDirector sharedDirector].runningScene;
+    origin.x = origin.x / scene.scale;
+    origin.y = origin.y / scene.scale;
+    highlight.position = origin;
+    
+    float scale = 1; //scene.scale;
+    
+    highlight.anchorPoint = node.anchorPoint;
+    highlight.contentSize = CGSizeMake(
+                                       node.contentSize.width / scale,
+                                       node.contentSize.height  / scale
+                                       );
+
+//    sprite.contentSize = node.contentSize;
+    NSLog(@"ANCHOR: %f, %f\nORIGIN: %f %f \nSIZE: %f, %f\n",
+    highlight.anchorPoint.x,
+          highlight.anchorPoint.y,
+          origin.x, origin.y,
+          highlight.contentSize.width,
+          highlight.contentSize.height
+          
+          );
+    
+    [scene addChild:highlight];
+    highlighter = highlight;
 /*
  
-    CGPoint sceneOrigin = [node convertToWorldSpace:CGPointMake(-node.contentSize.width/2, -node.contentSize.height/2)];
     CGPoint sceneBottomRightPoint = [node convertToWorldSpace:CGPointMake(node.contentSize.width/2, node.contentSize.height/2)];
     CGSize sceneSize = CGSizeMake(sceneBottomRightPoint.x - sceneOrigin.x, sceneBottomRightPoint.y - sceneOrigin.y);
     
@@ -110,7 +169,7 @@
 */
     
     // CCSpriteBatchNode does not responds to setOpacity: and crash when the node is focused
-    
+/*
     if ([node conformsToProtocol:@protocol(CCRGBAProtocol)]) {
         [node runAction:[CCSequence actions:
                          [CCFadeOut actionWithDuration:0.05],
@@ -123,6 +182,7 @@
                          nil
                          ]];
     }
+  */
     return [self emptyResult];
 }
 

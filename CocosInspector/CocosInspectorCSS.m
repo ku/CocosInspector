@@ -36,7 +36,7 @@
 
 -(id)getSupportedCSSProperties:(id)params {
     const char* supported_properties[] = {
-        "position", "visible", "scale", NULL
+        "position", "visible", "scale", "rotation", NULL
     };
     
     NSMutableArray *properties = [NSMutableArray arrayWithCapacity:sizeof(supported_properties)];
@@ -53,78 +53,38 @@
                      }
              };
 };
+
+-(id)_cssPropertyWithName:(NSString*)name value:(NSString*)value {
+    return [NSMutableDictionary dictionaryWithObjectsAndKeys:
+                        name, @"name",
+                        value, @"value",
+                        [NSNumber numberWithBool:NO], @"implicit",
+                        @"active", @"status",
+                        nil
+                    ];
+}
+-(id)_getInlineStylesForNode:(CCNode*)node {
+    return @{
+         @"cssProperties": @[
+                    [self _cssPropertyWithName:@"position" value:[NSString stringWithFormat:@"%f %f", node.position.x, node.position.y]],
+                    [self _cssPropertyWithName:@"scale"    value:[NSString stringWithFormat:@"%f", node.scale]],
+                    [self _cssPropertyWithName:@"visible"  value:[NSString stringWithFormat:@"%d", node.visible]],
+                    [self _cssPropertyWithName:@"rotation"  value:[NSString stringWithFormat:@"%f", node.rotation]],
+                 ],
+         @"shorthandEntries":@[],
+         @"styleId": @{
+                 @"ordinal": @0,
+                 @"styleSheetId": [self nodeIdOfCCNode:node]
+                 },
+         };
+}
 -(id)getInlineStylesForNode:(id)params {
     CCNode *node = [self nodeFromParams:params];
     return @{
              @"result": @{
-                     @"inlineStyle": @{
-                             @"cssProperties": @[
-                                        @{
-                                            @"name": @"position" ,
-                                            @"value": [NSString stringWithFormat:@"%f %f", node.position.x, node.position.y],
-                                            @"implicit": [NSNumber numberWithBool:NO],
-                                            @"status": @"active",
-                                        },
-                                        @{
-                                            @"name": @"scale" ,
-                                            @"value": [NSString stringWithFormat:@"%f", node.scaleX],
-                                            @"implicit": [NSNumber numberWithBool:NO],
-                                            @"status": @"active",
-                                        },
-                                        @{
-                                            @"name": @"visible" ,
-                                            @"value": [NSString stringWithFormat:@"%d", node.visible],
-                                            @"implicit": [NSNumber numberWithBool:NO],
-                                            @"status": @"active",
-                                        },
-                                     ],
-                             @"shorthandEntries":@[],
-                             @"styleId": @{
-                                     @"ordinal": @0,
-                                     @"styleSheetId": params[@"nodeId"]
-                                     },
-                             }
-                     }
-             };
-    
-    /*
-     {
-     "result": {
-     "inlineStyle": {
-     "cssProperties": [
-     {
-     "name": "color",
-     "value": "red",
-     "text": "color: red;",
-     "range": {
-     "startLine": 1,
-     "startColumn": 4,
-     "endLine": 1,
-     "endColumn": 15
-     },
-     "implicit": false,
-     "status": "active"
-     }
-     ],
-     "shorthandEntries": [],
-     "styleId": {
-     "styleSheetId": "1",
-     "ordinal": 0
-     },
-     "width": "",
-     "height": "",
-     "range": {
-     "startLine": 0,
-     "startColumn": 0,
-     "endLine": 2,
-     "endColumn": 0
-     },
-     "cssText": "\n    color: red;\n"
-     }
-     },
-     "id": 112
-     }
-     */
+                     @"inlineStyle": [self _getInlineStylesForNode:node]
+                    }
+            };
 }
 
 
@@ -144,29 +104,44 @@
              };
 }
 
+-(id)styleWithName:(NSString*)name value:(NSString*)value node:(CCNode*)node {
+    id style = [self _getInlineStylesForNode:node];
+    for (id prop in style[@"result"][@"cssProperties"]) {
+        if ([name isEqualToString:prop[@"name"]]) {
+            prop[@"value"] = value;
+            break;
+        }
+    }
+    return @{
+        @"result": @{
+            @"style": style
+        }
+    };
+}
+
 -(id)setPropertyText:(id)params {
-    NSRegularExpression *regex = [NSRegularExpression regularExpressionWithPattern:@"([a-z_-]+)\\s*:\\s*(\\S+)\\s*(\\S+)?" options:0 error:nil];
     NSString *text = params[@"text"];
+    text = [[NSRegularExpression regularExpressionWithPattern:@";$" options:0 error:nil]
+            stringByReplacingMatchesInString:text
+            options:0
+            range:NSMakeRange(0, [text length])
+            withTemplate:@""];
+    text = [[NSRegularExpression regularExpressionWithPattern:@"(\\s+)" options:0 error:nil]
+            stringByReplacingMatchesInString:text
+            options:0
+            range:NSMakeRange(0, [text length])
+            withTemplate:@" "];
+    
+    NSRegularExpression *regex = [NSRegularExpression regularExpressionWithPattern:@"([a-z_-]+)\\s*:\\s*(.+)" options:0 error:nil];
     NSTextCheckingResult *match = [regex firstMatchInString:text options:0 range:NSMakeRange(0, text.length)];
     if (match) {
-        NSMutableArray *args = [[NSMutableArray alloc] initWithCapacity:match.numberOfRanges];
-        for (int i = 1; i < regex.numberOfCaptureGroups; i++) {
-            NSString *value = [text substringWithRange:[match rangeAtIndex:i]];
-            if (value) {
-                [args addObject:value];
-            }
-        }
-
-        NSString *name = nil;
-        if ([args count] < 2) {
-            if ([args count] == 1) {
-                name = [args objectAtIndex:0];
-            }
-        } else {
+        NSString *name = [text substringWithRange:[match rangeAtIndex:1]];
+        NSString *value = [text substringWithRange:[match rangeAtIndex:2]];
+        
+        NSArray *args = [value componentsSeparatedByString:@" "];
+        
+        if ([args count] >= 1) {
             CCNode *node = [self nodeFromParams:params];
-            
-            name = [args objectAtIndex:0];
-            [args removeObjectAtIndex:0];
             
             if ([name isEqualToString:@"position"]) {
                 if ([args count] >= 2) {
@@ -174,20 +149,24 @@
                     NSString *y = [args objectAtIndex:1];
                     
                     node.position = ccp([x floatValue], [y floatValue]);
-                    return [self emptyResult];
+                    return [self styleWithName:name value:value node:node];
                 }
             } else if ([name isEqualToString:@"scale"]) {
                 if ([args count] >= 1) {
                     NSString *scale = [args objectAtIndex:0];
                     
                     node.scale = [scale floatValue];
-                    return [self emptyResult];
+                    return [self styleWithName:name value:value node:node];
                 }
                 
             } else if ([name isEqualToString:@"visible"]) {
                 id value = [args objectAtIndex:0];
                 node.visible = [value intValue];
-                return [self emptyResult];
+                return [self styleWithName:name value:value node:node];
+            } else if ([name isEqualToString:@"rotation"]) {
+                id value = [args objectAtIndex:0];
+                node.rotation = [value floatValue];
+                return [self styleWithName:name value:value node:node];
             } else {
                 return @{
                          @"error": @{

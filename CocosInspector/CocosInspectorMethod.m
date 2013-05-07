@@ -32,12 +32,8 @@
         }
     }
     
-    id nodeType = @([node isKindOfClass:[CCScene class]] ? 9 : 1);
+    id nodeType = @(1);//node isKindOfClass:[CCScene class]] ? 9 : 1);
     NSString *xmlVersion = @"";
-    if ( [node isKindOfClass:[CCScene class]]) {
-        className = @"#document";
-        xmlVersion = @"1.0";
-    }
     
     NSNumber *nodeId = [NSNumber numberWithUnsignedLongLong:(unsigned long long)node];
     [self.nodeCache setObject:node forKey:nodeId];
@@ -75,7 +71,7 @@
     return node;
 }
 
--(NSString*)nodeIdOfCCNode:(CCNode*)node {
+-(NSNumber*)nodeIdOfCCNode:(CCNode*)node {
     NSNumber *nodeId = [NSNumber numberWithUnsignedLongLong:(unsigned long long)node];
     return nodeId;
 }
